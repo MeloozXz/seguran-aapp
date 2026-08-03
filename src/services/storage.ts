@@ -240,26 +240,45 @@ export const StorageService = {
    * Salva o aceite dos Termos de Segurança e Privacidade no Storage seguro do Ionic
    */
   async saveSecurityTermsAccepted(email: string, version: string = 'v1.0'): Promise<void> {
-    const emailKey = email ? email.toLowerCase().trim() : 'global';
     const payload = JSON.stringify({
       accepted: true,
       timestamp: new Date().toISOString(),
       version
     });
-    await setSecureItem(`${KEYS.TERMS_ACCEPTED}_${emailKey}`, payload);
+    // Salva a nível global do dispositivo
+    await setSecureItem(`${KEYS.TERMS_ACCEPTED}_global`, payload);
+    // Se houver e-mail específico, salva também para o e-mail
+    if (email && email !== 'global') {
+      const emailKey = email.toLowerCase().trim();
+      await setSecureItem(`${KEYS.TERMS_ACCEPTED}_${emailKey}`, payload);
+    }
   },
 
   /**
    * Obtém o estado de aceite dos Termos de Segurança e Privacidade
    */
-  async getSecurityTermsAccepted(email: string): Promise<{ accepted: boolean; timestamp?: string; version?: string }> {
-    const emailKey = email ? email.toLowerCase().trim() : 'global';
-    const data = await getSecureItem(`${KEYS.TERMS_ACCEPTED}_${emailKey}`);
-    if (!data) return { accepted: false };
-    try {
-      return JSON.parse(data);
-    } catch {
-      return { accepted: false };
+  async getSecurityTermsAccepted(email?: string | null): Promise<{ accepted: boolean; timestamp?: string; version?: string }> {
+    // 1. Verifica se já aceitou globalmente neste dispositivo
+    const globalData = await getSecureItem(`${KEYS.TERMS_ACCEPTED}_global`);
+    if (globalData) {
+      try {
+        const parsed = JSON.parse(globalData);
+        if (parsed && parsed.accepted) return parsed;
+      } catch {}
     }
+
+    // 2. Se houver e-mail, verifica se já aceitou nessa conta
+    if (email) {
+      const emailKey = email.toLowerCase().trim();
+      const userData = await getSecureItem(`${KEYS.TERMS_ACCEPTED}_${emailKey}`);
+      if (userData) {
+        try {
+          const parsed = JSON.parse(userData);
+          if (parsed && parsed.accepted) return parsed;
+        } catch {}
+      }
+    }
+
+    return { accepted: false };
   }
 };

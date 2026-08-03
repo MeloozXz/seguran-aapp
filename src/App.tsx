@@ -80,18 +80,20 @@ const RouteAwareShaderBackground: React.FC = () => {
 const AppContent: React.FC = () => {
   const { isLoggedIn, isLocked, activeEmail } = useSecurity();
   const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
+  const [checkingTerms, setCheckingTerms] = useState<boolean>(true);
 
   useEffect(() => {
     async function checkTerms() {
-      if (isLoggedIn && activeEmail) {
-        const status = await StorageService.getSecurityTermsAccepted(activeEmail);
-        if (!status.accepted) {
-          setShowTermsModal(true);
-        }
+      const status = await StorageService.getSecurityTermsAccepted(activeEmail);
+      if (!status.accepted) {
+        setShowTermsModal(true);
+      } else {
+        setShowTermsModal(false);
       }
+      setCheckingTerms(false);
     }
     checkTerms();
-  }, [isLoggedIn, activeEmail]);
+  }, [activeEmail]);
 
   return (
     <IonApp style={{ background: '#070a13' }}>
@@ -192,12 +194,13 @@ const AppContent: React.FC = () => {
             </IonTabs>
           </IonReactRouter>
 
-          {/* Modal de Aceite dos Termos de Segurança */}
-          <SecurityTermsModal
-            isOpen={showTermsModal}
-            userEmail={activeEmail || ''}
-            onAccept={() => setShowTermsModal(false)}
-          />
+      {/* Modal de Aceite dos Termos de Segurança - Bloqueio Global até Aceitar */}
+      <SecurityTermsModal
+        isOpen={showTermsModal && !checkingTerms}
+        userEmail={activeEmail || 'global'}
+        onAccept={() => setShowTermsModal(false)}
+        canDismiss={false}
+      />
         </VaultProvider>
       )}
 

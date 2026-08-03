@@ -64,7 +64,7 @@ export const SecurityTermsModal: React.FC<SecurityTermsModalProps> = ({
   };
 
   return (
-    <IonModal isOpen={isOpen} backdropDismiss={canDismiss} onDidDismiss={onClose}>
+    <IonModal isOpen={isOpen} backdropDismiss={false} canDismiss={false}>
       <IonHeader>
         <IonToolbar style={{ '--background': '#070a13', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
           <IonTitle style={{ color: '#00f2fe', fontSize: '1.1rem', fontWeight: 800 }}>
