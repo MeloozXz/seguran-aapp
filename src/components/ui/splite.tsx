@@ -9,6 +9,34 @@ interface SplineSceneProps {
 }
 
 /**
+ * Error Boundary robusto para capturar falhas catastróficas de WebGL ou erros de importação do Spline.
+ */
+class SplineErrorBoundary extends React.Component<
+  { fallback: React.ReactNode; children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('Falha crítica ao renderizar o Spline 3D:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+/**
  * Fallback Canvas 2D / Vector Robot para dispositivos de menor desempenho ou se WebGL falhar.
  * Mantém a animação fluida a 60fps e responsiva ao toque no mobile sem consumir memória excessiva.
  */
@@ -160,13 +188,15 @@ export function SplineScene({ scene, className, onLoad }: SplineSceneProps) {
   }
 
   return (
-    <Suspense fallback={<FallbackRobotCanvas className={className} />}>
-      <Spline
-        scene={scene}
-        className={`${className || ''} touch-manipulation`}
-        onLoad={onLoad}
-        onError={() => setHasError(true)}
-      />
-    </Suspense>
+    <SplineErrorBoundary fallback={<FallbackRobotCanvas className={className} />}>
+      <Suspense fallback={<FallbackRobotCanvas className={className} />}>
+        <Spline
+          scene={scene}
+          className={`${className || ''} touch-manipulation`}
+          onLoad={onLoad}
+          onError={() => setHasError(true)}
+        />
+      </Suspense>
+    </SplineErrorBoundary>
   );
 }

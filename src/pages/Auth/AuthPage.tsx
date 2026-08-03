@@ -65,11 +65,16 @@ export const AuthPage: React.FC = () => {
   // Checa se existe qualquer conta no dispositivo para definir se exibe Cadastro ou Login
   useEffect(() => {
     async function checkUserExistence() {
-      const hasAccounts = await StorageService.hasAnyAccount();
-      if (hasAccounts) {
-        setMode('LOGIN');
-      } else {
-        setMode('REGISTER');
+      try {
+        const hasAccounts = await StorageService.hasAnyAccount();
+        if (hasAccounts) {
+          setMode('LOGIN');
+        } else {
+          setMode('REGISTER');
+        }
+      } catch (err) {
+        console.error('Erro ao verificar contas locais:', err);
+        setMode('REGISTER'); // Se falhar, assume Cadastro por padrão
       }
     }
     checkUserExistence();
