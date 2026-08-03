@@ -1,39 +1,108 @@
-import { StorageService } from './storage';
+import { Preferences } from '@capacitor/preferences';
+import { Capacitor } from '@capacitor/core';
 import { encryptData, decryptData, deriveKey, generateSalt } from '../crypto/webcrypto';
 
 const BIOMETRIC_KEY_PREFIX = 'zk_bio_auth_';
 const BIOMETRIC_CONFIG_PREFIX = 'zk_bio_config_';
 
+export type BiometricType = 'FACE_ID' | 'TOUCH_ID' | 'FINGERPRINT' | 'BIOMETRICS' | 'NONE';
+
+export interface BiometricHardwareStatus {
+  isAvailable: boolean;
+  biometricType: BiometricType;
+  isEnrolled: boolean;
+  error?: string;
+}
+
+export type BiometricErrorCode = 
+  | 'USER_CANCELLED'
+  | 'BIOMETRIC_FAILED'
+  | 'NOT_AVAILABLE'
+  | 'NOT_ENROLLED'
+  | 'LOCKED_OUT'
+  | 'UNKNOWN_ERROR';
+
+export interface BiometricAuthResult {
+  success: boolean;
+  masterPassword?: string;
+  errorCode?: BiometricErrorCode;
+  error?: string;
+}
+
 export interface BiometricConfig {
   enabled: boolean;
-  credentialId: string; // Base64 do ID da credencial WebAuthn
+  credentialId: string;
   registeredAt: string;
+  biometricType: BiometricType;
 }
 
 export const BiometricsService = {
   /**
-   * Verifica se a API de biometria (WebAuthn/Credentials) está disponível no dispositivo/navegador
+   * Verifica detalhadamente a disponibilidade de hardware biométrico no dispositivo ou navegador.
    */
-  async isAvailable(): Promise<boolean> {
-    if (!window.PublicKeyCredential) return false;
-    
-    // Verifica se há suporte para biometria nativa da plataforma (TouchID, FaceID, Windows Hello)
-    if (window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
-      return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+  async checkHardwareStatus(): Promise<BiometricHardwareStatus> {
+    try {
+      if (!window.PublicKeyCredential && !Capacitor.isNativePlatform()) {
+        return {
+          isAvailable: false,
+          biometricType: 'NONE',
+          isEnrolled: false,
+          error: 'Hardware ou API biométrica não suportada neste ambiente.'
+        };
+      }
+
+      let isAvailable = false;
+      let biometricType: BiometricType = 'BIOMETRICS';
+
+      if (window.PublicKeyCredential && window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+        isAvailable = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      } else if (Capacitor.isNativePlatform()) {
+        isAvailable = true;
+      }
+
+      // Detecção de tipo de biometria baseada em UserAgent / Plataforma
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('macintosh')) {
+        biometricType = 'FACE_ID'; // Ou Touch ID em aparelhos com botão físico
+      } else if (ua.includes('android')) {
+        biometricType = 'FINGERPRINT';
+      }
+
+      return {
+        isAvailable,
+        biometricType: isAvailable ? biometricType : 'NONE',
+        isEnrolled: isAvailable
+      };
+    } catch (err: any) {
+      return {
+        isAvailable: false,
+        biometricType: 'NONE',
+        isEnrolled: false,
+        error: err?.message || 'Erro ao consultar sensores de biometria.'
+      };
     }
-    return false;
   },
 
   /**
-   * Ativa a biometria para a conta ativa
-   * @param email E-mail da conta ativa
-   * @param masterPassword Senha Mestra atual que será criptografada
+   * Alias de conveniência para verificar disponibilidade simples
    */
-  async registerBiometrics(email: string, masterPassword: string): Promise<{ success: boolean; error?: string }> {
+  async isAvailable(): Promise<boolean> {
+    const status = await this.checkHardwareStatus();
+    return status.isAvailable;
+  },
+
+  /**
+   * Cadastra a biometria nativa para uma conta ativa.
+   */
+  async registerBiometrics(email: string, masterPassword: string): Promise<BiometricAuthResult> {
     try {
-      const isSupported = await this.isAvailable();
-      if (!isSupported) {
-        return { success: false, error: 'Biometria não suportada neste dispositivo ou navegador.' };
+      const hwStatus = await this.checkHardwareStatus();
+      if (!hwStatus.isAvailable) {
+        return {
+          success: false,
+          errorCode: 'NOT_AVAILABLE',
+          error: 'Hardware biométrico indisponível ou desativado no sistema.'
+        };
       }
 
       const emailKey = email.toLowerCase().trim();
@@ -43,19 +112,19 @@ export const BiometricsService = {
       const userId = new Uint8Array(16);
       window.crypto.getRandomValues(userId);
 
-      // Solicita registro de credencial biométrica local (WebAuthn)
+      // Prompt nativo / WebAuthn de autenticação biométrica
       const credential = await navigator.credentials.create({
         publicKey: {
           challenge: challenge,
-          rp: { name: "Cofre Seguro TCC" },
+          rp: { name: "Cofre Seguro Cyber Obsidian" },
           user: {
             id: userId,
             name: emailKey,
             displayName: emailKey
           },
-          pubKeyCredParams: [{ alg: -7, type: "public-key" }], // ES256
+          pubKeyCredParams: [{ alg: -7, type: "public-key" }],
           authenticatorSelection: {
-            authenticatorAttachment: "platform", // Força leitor nativo do dispositivo
+            authenticatorAttachment: "platform",
             userVerification: "required"
           },
           timeout: 60000
@@ -63,50 +132,75 @@ export const BiometricsService = {
       }) as PublicKeyCredential;
 
       if (!credential) {
-        return { success: false, error: 'O processo de registro de biometria foi cancelado.' };
+        return {
+          success: false,
+          errorCode: 'USER_CANCELLED',
+          error: 'Autenticação biométrica cancelada pelo usuário.'
+        };
       }
 
-      // Converte o ID da credencial para string Base64 para armazenar
       const rawId = new Uint8Array(credential.rawId);
       const credentialIdB64 = btoa(String.fromCharCode.apply(null, Array.from(rawId)));
 
-      // Gera uma senha local aleatória e salt
+      // Gera senha local forte para cifrar a master key
       const localBioPasswordArray = new Uint8Array(32);
       window.crypto.getRandomValues(localBioPasswordArray);
       const localBioPassword = btoa(String.fromCharCode.apply(null, Array.from(localBioPasswordArray)));
       const salt = generateSalt();
 
-      // Deriva a CryptoKey a partir da senha biométrica local
       const cryptoKey = await deriveKey(localBioPassword, salt);
-
-      // Criptografa a Senha Mestra real usando a CryptoKey derivada
       const encryptedMasterPassword = await encryptData(masterPassword, cryptoKey);
 
-      // Salva os dados criptografados e a chave de descriptografia biométrica
       const payload = JSON.stringify({
         encryptedMasterPassword,
         localBioPassword,
         salt
       });
-      localStorage.setItem(`${BIOMETRIC_KEY_PREFIX}${emailKey}`, payload);
 
-      // Salva a configuração de biometria
+      // Salva no storage local seguro do Capacitor
+      await Preferences.set({
+        key: `${BIOMETRIC_KEY_PREFIX}${emailKey}`,
+        value: payload
+      });
+
       const config: BiometricConfig = {
         enabled: true,
         credentialId: credentialIdB64,
-        registeredAt: new Date().toISOString()
+        registeredAt: new Date().toISOString(),
+        biometricType: hwStatus.biometricType
       };
+
+      await Preferences.set({
+        key: `${BIOMETRIC_CONFIG_PREFIX}${emailKey}`,
+        value: JSON.stringify(config)
+      });
+
+      // Fallback para localStorage
+      localStorage.setItem(`${BIOMETRIC_KEY_PREFIX}${emailKey}`, payload);
       localStorage.setItem(`${BIOMETRIC_CONFIG_PREFIX}${emailKey}`, JSON.stringify(config));
 
       return { success: true };
     } catch (err: any) {
-      console.error('Erro ao registrar biometria:', err);
-      return { success: false, error: err.message || 'Erro desconhecido ao registrar biometria.' };
+      console.error('Erro no registro biométrico:', err);
+      const message = err?.message || '';
+      
+      let errorCode: BiometricErrorCode = 'UNKNOWN_ERROR';
+      if (message.includes('cancel') || message.includes('abort')) {
+        errorCode = 'USER_CANCELLED';
+      } else if (message.includes('not allowed') || message.includes('NotAllowedError')) {
+        errorCode = 'USER_CANCELLED';
+      }
+
+      return {
+        success: false,
+        errorCode,
+        error: message || 'Falha ao vincular biometria do dispositivo.'
+      };
     }
   },
 
   /**
-   * Verifica se a biometria está ativa para o e-mail informado
+   * Verifica se o e-mail possui biometria cadastrada.
    */
   isEnrolled(email: string): boolean {
     const emailKey = email.toLowerCase().trim();
@@ -121,31 +215,42 @@ export const BiometricsService = {
   },
 
   /**
-   * Desativa a biometria para a conta informada
+   * Desativa e limpa os registros biométricos do usuário.
    */
-  disableBiometrics(email: string): void {
+  async disableBiometrics(email: string): Promise<void> {
     const emailKey = email.toLowerCase().trim();
+    await Preferences.remove({ key: `${BIOMETRIC_KEY_PREFIX}${emailKey}` });
+    await Preferences.remove({ key: `${BIOMETRIC_CONFIG_PREFIX}${emailKey}` });
     localStorage.removeItem(`${BIOMETRIC_KEY_PREFIX}${emailKey}`);
     localStorage.removeItem(`${BIOMETRIC_CONFIG_PREFIX}${emailKey}`);
   },
 
   /**
-   * Autentica com biometria e retorna a Senha Mestra descriptografada
+   * Dispara o prompt biométrico nativo do SO para ler a chave mestra em memória.
    */
-  async authenticate(email: string): Promise<{ success: boolean; masterPassword?: string; error?: string }> {
+  async authenticate(email: string): Promise<BiometricAuthResult> {
     try {
       const emailKey = email.toLowerCase().trim();
-      const configStr = localStorage.getItem(`${BIOMETRIC_CONFIG_PREFIX}${emailKey}`);
-      const keyDataStr = localStorage.getItem(`${BIOMETRIC_KEY_PREFIX}${emailKey}`);
+      
+      let configStr = (await Preferences.get({ key: `${BIOMETRIC_CONFIG_PREFIX}${emailKey}` })).value;
+      let keyDataStr = (await Preferences.get({ key: `${BIOMETRIC_KEY_PREFIX}${emailKey}` })).value;
 
       if (!configStr || !keyDataStr) {
-        return { success: false, error: 'Biometria não cadastrada para esta conta.' };
+        configStr = localStorage.getItem(`${BIOMETRIC_CONFIG_PREFIX}${emailKey}`);
+        keyDataStr = localStorage.getItem(`${BIOMETRIC_KEY_PREFIX}${emailKey}`);
+      }
+
+      if (!configStr || !keyDataStr) {
+        return {
+          success: false,
+          errorCode: 'NOT_ENROLLED',
+          error: 'Nenhuma chave biométrica registrada para esta conta.'
+        };
       }
 
       const config = JSON.parse(configStr) as BiometricConfig;
       const keyData = JSON.parse(keyDataStr);
 
-      // Converte o credentialId em base64 de volta para ArrayBuffer
       const rawId = new Uint8Array(
         atob(config.credentialId)
           .split("")
@@ -155,7 +260,7 @@ export const BiometricsService = {
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
 
-      // Dispara a validação biométrica do sistema operacional
+      // Desencadeia o prompt biométrico do hardware do dispositivo
       const assertion = await navigator.credentials.get({
         publicKey: {
           challenge: challenge,
@@ -169,18 +274,39 @@ export const BiometricsService = {
       });
 
       if (!assertion) {
-        return { success: false, error: 'Falha na autenticação biométrica.' };
+        return {
+          success: false,
+          errorCode: 'BIOMETRIC_FAILED',
+          error: 'A validação biométrica falhou.'
+        };
       }
 
-      // Deriva a CryptoKey a partir da chave biométrica local salva
+      // Deriva CryptoKey em memória
       const cryptoKey = await deriveKey(keyData.localBioPassword, keyData.salt);
-
-      // Descriptografa a Senha Mestra usando a CryptoKey
       const masterPassword = await decryptData(keyData.encryptedMasterPassword, cryptoKey);
-      return { success: true, masterPassword };
+
+      return {
+        success: true,
+        masterPassword
+      };
     } catch (err: any) {
-      console.error('Erro na autenticação biométrica:', err);
-      return { success: false, error: 'A validação biométrica foi cancelada ou falhou.' };
+      console.error('Erro na verificação biométrica:', err);
+      const msg = err?.message || '';
+
+      let errorCode: BiometricErrorCode = 'UNKNOWN_ERROR';
+      if (msg.includes('NotAllowedError') || msg.includes('cancel')) {
+        errorCode = 'USER_CANCELLED';
+      } else if (msg.includes('lockout') || msg.includes('blocked')) {
+        errorCode = 'LOCKED_OUT';
+      } else {
+        errorCode = 'BIOMETRIC_FAILED';
+      }
+
+      return {
+        success: false,
+        errorCode,
+        error: msg || 'Ocorreu uma falha ao autenticar com a biometria nativa.'
+      };
     }
   }
 };

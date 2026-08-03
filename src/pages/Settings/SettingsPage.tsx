@@ -327,6 +327,14 @@ export const SettingsPage: React.FC = () => {
                     </div>
                     <IonButton
                       expand="block"
+                      routerLink="/biometric-settings"
+                      className="settings-btn-primary"
+                      style={{ marginBottom: '6px' }}
+                    >
+                      Painel de Biometria & Chave Mestra
+                    </IonButton>
+                    <IonButton
+                      expand="block"
                       color="danger"
                       fill="outline"
                       onClick={() => {
@@ -339,6 +347,13 @@ export const SettingsPage: React.FC = () => {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <IonButton
+                      expand="block"
+                      routerLink="/biometric-settings"
+                      className="settings-btn-primary"
+                    >
+                      Abrir Configurações Biométricas Avançadas
+                    </IonButton>
                     <IonItem lines="none" className="settings-wipe-input-item" style={{ marginBottom: '4px' }}>
                       <IonIcon icon={keyOutline} slot="start" style={{ color: '#00f2fe' }} />
                       <IonInput

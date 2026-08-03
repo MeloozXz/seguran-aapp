@@ -57,6 +57,7 @@ const HardeningPage = lazy(() => import('./pages/Hardening/HardeningPage').then(
 const AnalysisPage = lazy(() => import('./pages/Analysis/AnalysisPage').then(m => ({ default: m.AnalysisPage })));
 const EducationPage = lazy(() => import('./pages/Education/EducationPage').then(m => ({ default: m.EducationPage })));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const BiometricSettings = lazy(() => import('./pages/BiometricSettings').then(m => ({ default: m.BiometricSettings })));
 const VpnPage = lazy(() => import('./pages/Vpn/VpnPage').then(m => ({ default: m.VpnPage })));
 const BreachPage = lazy(() => import('./pages/Breach/BreachPage').then(m => ({ default: m.BreachPage })));
 
@@ -130,6 +131,7 @@ const AppContent: React.FC = () => {
                       <Route exact path="/analysis" component={AnalysisPage} />
                       <Route exact path="/education" component={EducationPage} />
                       <Route exact path="/settings" component={SettingsPage} />
+                      <Route exact path="/biometric-settings" component={BiometricSettings} />
 
                       {/* Subpáginas do Cofre */}
                       <Route exact path="/vault/add" component={VaultFormPage} />
