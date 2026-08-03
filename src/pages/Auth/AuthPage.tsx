@@ -44,7 +44,7 @@ export const AuthPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [lockoutSecs, setLockoutSecs] = useState<number>(0);
   const [splineLoaded, setSplineLoaded] = useState<boolean>(false);
-  const [showLoginForm, setShowLoginForm] = useState<boolean>(false);
+  const [showLoginForm, setShowLoginForm] = useState<boolean>(true);
 
   const handleSplineLoad = () => {
     setSplineLoaded(true);

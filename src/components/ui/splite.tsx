@@ -149,6 +149,12 @@ export function SplineScene({ scene, className, onLoad }: SplineSceneProps) {
     }
   }, []);
 
+  useEffect(() => {
+    if ((hasError || isLowPowerDevice) && onLoad) {
+      onLoad();
+    }
+  }, [hasError, isLowPowerDevice, onLoad]);
+
   if (hasError || isLowPowerDevice) {
     return <FallbackRobotCanvas className={className} />;
   }

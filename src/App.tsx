@@ -99,7 +99,7 @@ const AppContent: React.FC = () => {
         <AuthPage />
       ) : (
         <VaultProvider>
-          <IonReactRouter>
+          <IonReactRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
             <RouteAwareShaderBackground />
             <IonTabs>
               <IonRouterOutlet style={{ overflow: 'hidden' }}>
