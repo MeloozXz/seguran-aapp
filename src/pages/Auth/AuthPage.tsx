@@ -58,14 +58,22 @@ export const AuthPage: React.FC = () => {
   const handleBiometricLogin = async () => {
     setErrorMsg(null);
     setSuccessMsg(null);
-    if (!email.trim()) {
-      setErrorMsg('Por favor, informe seu e-mail ou usuário cadastrado.');
-      return;
+
+    let targetEmail = email.trim();
+    if (!targetEmail) {
+      const enrolled = BiometricsService.getEnrolledEmails();
+      if (enrolled.length > 0) {
+        targetEmail = enrolled[0];
+        setEmail(targetEmail);
+      } else {
+        setErrorMsg('Por favor, informe seu e-mail ou ative a biometria nas configurações primeiro.');
+        return;
+      }
     }
 
     setLoading(true);
     try {
-      const res = await loginWithBiometrics(email);
+      const res = await loginWithBiometrics(targetEmail);
       setLoading(false);
       if (res.success) {
         if ('requires2FA' in res && res.requires2FA) {
@@ -85,20 +93,28 @@ export const AuthPage: React.FC = () => {
   const handleBiometricRecovery = async () => {
     setErrorMsg(null);
     setSuccessMsg(null);
-    if (!email.trim()) {
-      setErrorMsg('Informe seu e-mail para recuperar a senha com biometria.');
-      return;
+
+    let targetEmail = email.trim();
+    if (!targetEmail) {
+      const enrolled = BiometricsService.getEnrolledEmails();
+      if (enrolled.length > 0) {
+        targetEmail = enrolled[0];
+        setEmail(targetEmail);
+      } else {
+        setErrorMsg('Por favor, informe seu e-mail cadastrado para recuperar via biometria.');
+        return;
+      }
     }
 
     try {
-      const enrolled = isBiometricsEnrolled(email);
+      const enrolled = isBiometricsEnrolled(targetEmail);
       if (!enrolled) {
         setErrorMsg('A biometria não está cadastrada para esta conta neste navegador/aparelho.');
         return;
       }
 
       setLoading(true);
-      const res = await BiometricsService.authenticate(email);
+      const res = await BiometricsService.authenticate(targetEmail);
       setLoading(false);
 
       if (res.success && res.masterPassword) {
@@ -492,18 +508,16 @@ export const AuthPage: React.FC = () => {
                         </IonButton>
                       </IonItem>
 
-                      {/* Recuperação com Biometria se ativada */}
-                      {isBiometricsSupported && email.trim() && isBiometricsEnrolled(email) && (
-                        <div style={{ textAlign: 'right', marginBottom: '14px', marginTop: '-8px' }}>
-                          <a 
-                            href="#" 
-                            onClick={(e) => { e.preventDefault(); handleBiometricRecovery(); }}
-                            style={{ color: '#00f2fe', fontSize: '0.78rem', textDecoration: 'none', fontWeight: 600 }}
-                          >
-                            Esqueceu a senha? Recuperar via Biometria
-                          </a>
-                        </div>
-                      )}
+                      {/* Recuperação com Biometria */}
+                      <div style={{ textAlign: 'right', marginBottom: '14px', marginTop: '-8px' }}>
+                        <a 
+                          href="#" 
+                          onClick={(e) => { e.preventDefault(); handleBiometricRecovery(); }}
+                          style={{ color: '#00f2fe', fontSize: '0.78rem', textDecoration: 'none', fontWeight: 600 }}
+                        >
+                          Esqueceu a senha? Recuperar via Biometria
+                        </a>
+                      </div>
 
                       {lockoutSecs > 0 ? (
                         <div className="brute-force-lockout">
@@ -524,26 +538,24 @@ export const AuthPage: React.FC = () => {
                             {loading ? <IonSpinner name="crescent" /> : 'Desbloquear Agora'}
                           </IonButton>
 
-                          {/* Login com Biometria se ativado */}
-                          {isBiometricsSupported && email.trim() && isBiometricsEnrolled(email) && (
-                            <IonButton 
-                              type="button" 
-                              expand="block" 
-                              fill="outline" 
-                              onClick={handleBiometricLogin}
-                              style={{ 
-                                marginTop: '12px', 
-                                '--border-width': '2px', 
-                                '--color': '#00f2fe', 
-                                '--border-color': 'rgba(0, 242, 254, 0.4)', 
-                                '--background': 'rgba(0, 242, 254, 0.03)' 
-                              }}
-                              disabled={loading}
-                            >
-                              <IonIcon icon={fingerPrintOutline} slot="start" />
-                              Desbloquear com Biometria
-                            </IonButton>
-                          )}
+                          {/* Login com Biometria */}
+                          <IonButton 
+                            type="button" 
+                            expand="block" 
+                            fill="outline" 
+                            onClick={handleBiometricLogin}
+                            style={{ 
+                              marginTop: '12px', 
+                              '--border-width': '2px', 
+                              '--color': '#00f2fe', 
+                              '--border-color': 'rgba(0, 242, 254, 0.4)', 
+                              '--background': 'rgba(0, 242, 254, 0.03)' 
+                            }}
+                            disabled={loading}
+                          >
+                            <IonIcon icon={fingerPrintOutline} slot="start" />
+                            Desbloquear com Biometria
+                          </IonButton>
                         </>
                       )}
 

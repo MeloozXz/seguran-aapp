@@ -51,26 +51,33 @@ export const BiometricsService = {
         };
       }
 
-      let isAvailable = false;
+      let isAvailable = !!window.PublicKeyCredential || Capacitor.isNativePlatform();
       let biometricType: BiometricType = 'BIOMETRICS';
 
       if (window.PublicKeyCredential && window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
-        isAvailable = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-      } else if (Capacitor.isNativePlatform()) {
-        isAvailable = true;
+        try {
+          const platformAvailable = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+          if (platformAvailable) {
+            isAvailable = true;
+          }
+        } catch {
+          // Ignora erro e mantém a API WebAuthn habilitada
+        }
       }
 
       // Detecção de tipo de biometria baseada em UserAgent / Plataforma
       const ua = navigator.userAgent.toLowerCase();
       if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('macintosh')) {
-        biometricType = 'FACE_ID'; // Ou Touch ID em aparelhos com botão físico
+        biometricType = 'FACE_ID';
       } else if (ua.includes('android')) {
         biometricType = 'FINGERPRINT';
+      } else {
+        biometricType = 'BIOMETRICS';
       }
 
       return {
         isAvailable,
-        biometricType: isAvailable ? biometricType : 'NONE',
+        biometricType,
         isEnrolled: isAvailable
       };
     } catch (err: any) {
@@ -212,6 +219,27 @@ export const BiometricsService = {
     } catch {
       return false;
     }
+  },
+
+  /**
+   * Retorna a lista de e-mails com biometria ativa cadastrada neste dispositivo.
+   */
+  getEnrolledEmails(): string[] {
+    const emails: string[] = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(BIOMETRIC_CONFIG_PREFIX)) {
+          const email = key.replace(BIOMETRIC_CONFIG_PREFIX, '');
+          if (email && this.isEnrolled(email)) {
+            emails.push(email);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao ler e-mails biométricos cadastrados:', err);
+    }
+    return emails;
   },
 
   /**

@@ -304,89 +304,87 @@ export const SettingsPage: React.FC = () => {
           </IonCard>
 
           {/* Biometria (Touch ID / Face ID / Windows Hello) */}
-          {isBiometricsSupported && (
-            <IonCard className="settings-card">
-              <IonCardHeader>
-                <div className="settings-card-title-row">
-                  <IonIcon icon={fingerPrintOutline} style={{ color: '#00f2fe', fontSize: '22px' }} />
-                  <IonCardTitle className="settings-card-title">
-                    Biometria (Touch ID / Face ID)
-                  </IonCardTitle>
-                </div>
-              </IonCardHeader>
-              <IonCardContent>
-                <p className="settings-card-desc">
-                  Ative o desbloqueio biométrico para acessar seu cofre rapidamente ou recuperar sua senha mestra localmente caso a esqueça.
-                </p>
+          <IonCard className="settings-card">
+            <IonCardHeader>
+              <div className="settings-card-title-row">
+                <IonIcon icon={fingerPrintOutline} style={{ color: '#00f2fe', fontSize: '22px' }} />
+                <IonCardTitle className="settings-card-title">
+                  Biometria (Touch ID / Face ID)
+                </IonCardTitle>
+              </div>
+            </IonCardHeader>
+            <IonCardContent>
+              <p className="settings-card-desc">
+                Ative o desbloqueio biométrico para acessar seu cofre rapidamente ou recuperar sua senha mestra localmente caso a esqueça.
+              </p>
 
-                {activeEmail && isBiometricsEnrolled(activeEmail) ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', fontSize: '0.85rem', fontWeight: 700, marginBottom: '8px' }}>
-                      <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
-                      Biometria ativa neste dispositivo
-                    </div>
-                    <IonButton
-                      expand="block"
-                      routerLink="/biometric-settings"
-                      className="settings-btn-primary"
-                      style={{ marginBottom: '6px' }}
-                    >
-                      Painel de Biometria & Chave Mestra
-                    </IonButton>
-                    <IonButton
-                      expand="block"
-                      color="danger"
-                      fill="outline"
-                      onClick={() => {
-                        disableBiometrics();
-                        showFeedback('Biometria desativada com sucesso.', 'success');
-                      }}
-                    >
-                      Desativar Biometria
-                    </IonButton>
+              {activeEmail && isBiometricsEnrolled(activeEmail) ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', fontSize: '0.85rem', fontWeight: 700, marginBottom: '8px' }}>
+                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
+                    Biometria ativa neste dispositivo
                   </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <IonButton
-                      expand="block"
-                      routerLink="/biometric-settings"
-                      className="settings-btn-primary"
-                    >
-                      Abrir Configurações Biométricas Avançadas
-                    </IonButton>
-                    <IonItem lines="none" className="settings-wipe-input-item" style={{ marginBottom: '4px' }}>
-                      <IonIcon icon={keyOutline} slot="start" style={{ color: '#00f2fe' }} />
-                      <IonInput
-                        type="password"
-                        placeholder="Senha mestra para confirmar"
-                        value={bioPassword}
-                        onIonInput={e => setBioPassword(e.detail.value ?? '')}
-                      />
-                    </IonItem>
-                    <IonButton
-                      expand="block"
-                      className="settings-btn-primary"
-                      onClick={async () => {
-                        if (!bioPassword.trim()) {
-                          showFeedback('Por favor, informe sua senha mestra para prosseguir.', 'warning');
-                          return;
-                        }
-                        const res = await registerBiometrics(bioPassword);
-                        if (res.success) {
-                          showFeedback('✓ Biometria ativada com sucesso!', 'success');
-                          setBioPassword('');
-                        } else {
-                          showFeedback(res.error || 'Erro ao ativar biometria.', 'danger');
-                        }
-                      }}
-                    >
-                      Ativar Biometria
-                    </IonButton>
-                  </div>
-                )}
-              </IonCardContent>
-            </IonCard>
-          )}
+                  <IonButton
+                    expand="block"
+                    routerLink="/biometric-settings"
+                    className="settings-btn-primary"
+                    style={{ marginBottom: '6px' }}
+                  >
+                    Painel de Biometria & Chave Mestra
+                  </IonButton>
+                  <IonButton
+                    expand="block"
+                    color="danger"
+                    fill="outline"
+                    onClick={() => {
+                      disableBiometrics();
+                      showFeedback('Biometria desativada com sucesso.', 'success');
+                    }}
+                  >
+                    Desativar Biometria
+                  </IonButton>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <IonButton
+                    expand="block"
+                    routerLink="/biometric-settings"
+                    className="settings-btn-primary"
+                  >
+                    Painel de Biometria & Chave Mestra
+                  </IonButton>
+                  <IonItem lines="none" className="settings-wipe-input-item" style={{ marginBottom: '4px' }}>
+                    <IonIcon icon={keyOutline} slot="start" style={{ color: '#00f2fe' }} />
+                    <IonInput
+                      type="password"
+                      placeholder="Senha mestra para confirmar"
+                      value={bioPassword}
+                      onIonInput={e => setBioPassword(e.detail.value ?? '')}
+                    />
+                  </IonItem>
+                  <IonButton
+                    expand="block"
+                    className="settings-btn-primary"
+                    onClick={async () => {
+                      if (!bioPassword.trim()) {
+                        showFeedback('Por favor, informe sua senha mestra para prosseguir.', 'warning');
+                        return;
+                      }
+                      const res = await registerBiometrics(bioPassword);
+                      if (res.success) {
+                        showFeedback('✓ Biometria ativada com sucesso!', 'success');
+                        setBioPassword('');
+                      } else {
+                        showFeedback(res.error || 'Erro ao ativar biometria.', 'danger');
+                      }
+                    }}
+                  >
+                    Ativar Biometria
+                  </IonButton>
+                </div>
+              )}
+            </IonCardContent>
+          </IonCard>
 
           {/* Gerenciamento de Sessões */}
           <IonCard className="settings-card">
