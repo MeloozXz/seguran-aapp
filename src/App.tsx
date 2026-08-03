@@ -77,23 +77,42 @@ const RouteAwareShaderBackground: React.FC = () => {
   return <ShaderBackground />;
 };
 
+const TermsWall: React.FC<{ onAccept: () => void }> = ({ onAccept }) => (
+  <IonApp style={{ background: '#070a13' }}>
+    <SecurityTermsModal
+      isOpen={true}
+      userEmail="global"
+      onAccept={onAccept}
+      canDismiss={false}
+    />
+  </IonApp>
+);
+
 const AppContent: React.FC = () => {
   const { isLoggedIn, isLocked, activeEmail } = useSecurity();
-  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
-  const [checkingTerms, setCheckingTerms] = useState<boolean>(true);
+  const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null);
 
   useEffect(() => {
     async function checkTerms() {
       const status = await StorageService.getSecurityTermsAccepted(activeEmail);
-      if (!status.accepted) {
-        setShowTermsModal(true);
-      } else {
-        setShowTermsModal(false);
-      }
-      setCheckingTerms(false);
+      setTermsAccepted(status.accepted);
     }
     checkTerms();
   }, [activeEmail]);
+
+  if (termsAccepted === null) {
+    return (
+      <IonApp style={{ background: '#070a13', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <IonSpinner name="crescent" style={{ color: '#00f2fe', width: '48px', height: '48px' }} />
+      </IonApp>
+    );
+  }
+
+  if (!termsAccepted) {
+    return (
+      <TermsWall onAccept={() => setTermsAccepted(true)} />
+    );
+  }
 
   return (
     <IonApp style={{ background: '#070a13' }}>
@@ -193,14 +212,6 @@ const AppContent: React.FC = () => {
               </IonTabBar>
             </IonTabs>
           </IonReactRouter>
-
-      {/* Modal de Aceite dos Termos de Segurança - Bloqueio Global até Aceitar */}
-      <SecurityTermsModal
-        isOpen={showTermsModal && !checkingTerms}
-        userEmail={activeEmail || 'global'}
-        onAccept={() => setShowTermsModal(false)}
-        canDismiss={false}
-      />
         </VaultProvider>
       )}
 
