@@ -260,16 +260,16 @@ export const BiometricSettings: React.FC = () => {
                 <IonToggle
                   checked={enrolled}
                   onIonChange={(e) => handleToggle(e.detail.checked)}
-                  disabled={!hwStatus?.isAvailable || isProcessing}
+                  disabled={isProcessing}
                   slot="end"
                   style={{ '--color-checked': '#10b981' }}
                 />
               </IonItem>
 
-              {!enrolled && hwStatus?.isAvailable && (
+              {!enrolled && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
                   <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>
-                    Para ativar a biometria, confirme sua Senha Mestra:
+                    Para cadastrar/ativar sua Biometria (Impressão Digital ou Rosto), informe sua Senha Mestra:
                   </span>
                   <div style={{
                     display: 'flex',
@@ -282,7 +282,7 @@ export const BiometricSettings: React.FC = () => {
                     <IonIcon icon={keyOutline} style={{ color: '#00f2fe', fontSize: '18px', marginRight: '8px' }} />
                     <IonInput
                       type="password"
-                      placeholder="Sua Senha Mestra"
+                      placeholder="Digite sua Senha Mestra"
                       value={confirmPassword}
                       onIonInput={(e) => setConfirmPassword(e.detail.value ?? '')}
                       style={{ color: '#ffffff', '--placeholder-color': '#64748b' }}
@@ -299,7 +299,7 @@ export const BiometricSettings: React.FC = () => {
                       margin: '6px 0 0'
                     }}
                   >
-                    {isProcessing ? <IonSpinner name="crescent" style={{ color: '#000' }} /> : 'Vincular Biometria ao Cofre'}
+                    {isProcessing ? <IonSpinner name="crescent" style={{ color: '#000' }} /> : '⚡ Cadastrar e Vincular Biometria Nativa'}
                   </IonButton>
                 </div>
               )}

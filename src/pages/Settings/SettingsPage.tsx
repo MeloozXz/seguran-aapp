@@ -350,37 +350,44 @@ export const SettingsPage: React.FC = () => {
                     expand="block"
                     routerLink="/biometric-settings"
                     className="settings-btn-primary"
+                    style={{ marginBottom: '4px' }}
                   >
-                    Painel de Biometria & Chave Mestra
+                    Painel Avançado de Biometria & Chave Mestra
                   </IonButton>
-                  <IonItem lines="none" className="settings-wipe-input-item" style={{ marginBottom: '4px' }}>
-                    <IonIcon icon={keyOutline} slot="start" style={{ color: '#00f2fe' }} />
-                    <IonInput
-                      type="password"
-                      placeholder="Senha mestra para confirmar"
-                      value={bioPassword}
-                      onIonInput={e => setBioPassword(e.detail.value ?? '')}
-                    />
-                  </IonItem>
-                  <IonButton
-                    expand="block"
-                    className="settings-btn-primary"
-                    onClick={async () => {
-                      if (!bioPassword.trim()) {
-                        showFeedback('Por favor, informe sua senha mestra para prosseguir.', 'warning');
-                        return;
-                      }
-                      const res = await registerBiometrics(bioPassword);
-                      if (res.success) {
-                        showFeedback('✓ Biometria ativada com sucesso!', 'success');
-                        setBioPassword('');
-                      } else {
-                        showFeedback(res.error || 'Erro ao ativar biometria.', 'danger');
-                      }
-                    }}
-                  >
-                    Ativar Biometria
-                  </IonButton>
+
+                  <div style={{ background: 'rgba(2, 6, 23, 0.4)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(0, 242, 254, 0.15)' }}>
+                    <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 700, display: 'block', marginBottom: '8px' }}>
+                      CADASTRAR BIOMETRIA (DIGITAL / ROSTO):
+                    </span>
+                    <IonItem lines="none" className="settings-wipe-input-item" style={{ marginBottom: '8px' }}>
+                      <IonIcon icon={keyOutline} slot="start" style={{ color: '#00f2fe' }} />
+                      <IonInput
+                        type="password"
+                        placeholder="Digite sua Senha Mestra"
+                        value={bioPassword}
+                        onIonInput={e => setBioPassword(e.detail.value ?? '')}
+                      />
+                    </IonItem>
+                    <IonButton
+                      expand="block"
+                      className="settings-btn-primary"
+                      onClick={async () => {
+                        if (!bioPassword.trim()) {
+                          showFeedback('Por favor, informe sua senha mestra para prosseguir.', 'warning');
+                          return;
+                        }
+                        const res = await registerBiometrics(bioPassword);
+                        if (res.success) {
+                          showFeedback('✓ Biometria ativada com sucesso!', 'success');
+                          setBioPassword('');
+                        } else {
+                          showFeedback(res.error || 'Erro ao ativar biometria.', 'danger');
+                        }
+                      }}
+                    >
+                      ⚡ Cadastrar e Ativar Biometria Nativa
+                    </IonButton>
+                  </div>
                 </div>
               )}
             </IonCardContent>
