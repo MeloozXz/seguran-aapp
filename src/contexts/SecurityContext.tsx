@@ -7,6 +7,7 @@ import { hashSHA256, encryptData, decryptData } from '../crypto/webcrypto';
 import { verifyTOTP, generateBase32Secret } from '../crypto/totp';
 import { auth } from '../services/firebase';
 import { signOut } from 'firebase/auth';
+import { BiometricsService } from '../services/biometrics';
 
 interface SecurityContextType {
   isLoggedIn: boolean;       // Indica se a chave mestra está carregada na RAM
@@ -32,6 +33,13 @@ interface SecurityContextType {
   setupNew2FA: () => string; // Gera segredo local e retorna
   enable2FA: (token: string) => Promise<{ success: boolean; error?: string }>;
   disable2FA: () => Promise<void>;
+
+  // Ações de Biometria
+  isBiometricsSupported: boolean;
+  isBiometricsEnrolled: (email: string) => boolean;
+  registerBiometrics: (password: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithBiometrics: (email: string) => Promise<{ success: boolean; requires2FA?: boolean; error?: string }>;
+  disableBiometrics: () => void;
 }
 
 const SecurityContext = createContext<SecurityContextType | undefined>(undefined);
@@ -43,10 +51,15 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [totpEnabled, setTotpEnabled] = useState<boolean>(false);
   const [totpSecret, setTotpSecret] = useState<string | null>(null);
   const [activeEmail, setActiveEmail] = useState<string | null>(null);
+  const [isBiometricsSupported, setIsBiometricsSupported] = useState<boolean>(false);
 
   // Inicializa o estado de segurança carregando configurações do Storage local
   useEffect(() => {
     async function initSecurity() {
+      // Verifica se o dispositivo possui suporte biométrico
+      const bioAvailable = await BiometricsService.isAvailable();
+      setIsBiometricsSupported(bioAvailable);
+
       // Se por algum motivo reiniciar o app e a chave na RAM sumir, desloga
       if (!SessionService.isKeyLoaded()) {
         setIsLoggedIn(false);
@@ -271,17 +284,67 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const unlockWithBiometrics = async (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      const confirmed = window.confirm('Deseja autenticar usando a Biometria Cadastrada no Android (Fingerprint / FaceID)?');
-      if (confirmed) {
-        setIsLocked(false);
-        const email = SessionService.getActiveUserEmail() || '';
-        StorageService.addAuditLog(email, '2FA_VERIFIED', 'Desbloqueio efetuado via Biometria Nativa.');
-        resolve(true);
-      } else {
-        resolve(false);
-      }
-    });
+    const email = SessionService.getActiveUserEmail() || activeEmail;
+    if (!email) return false;
+
+    const enrolled = BiometricsService.isEnrolled(email);
+    if (!enrolled) {
+      alert('Biometria não configurada para este dispositivo.');
+      return false;
+    }
+
+    const res = await BiometricsService.authenticate(email);
+    if (res.success) {
+      setIsLocked(false);
+      await StorageService.addAuditLog(email, '2FA_VERIFIED', 'Desbloqueio efetuado via Biometria.');
+      return true;
+    } else {
+      return false;
+    }
+  };
+
+  const isBiometricsEnrolled = (email: string): boolean => {
+    return BiometricsService.isEnrolled(email);
+  };
+
+  const registerBiometrics = async (password: string): Promise<{ success: boolean; error?: string }> => {
+    const email = SessionService.getActiveUserEmail() || activeEmail;
+    if (!email) {
+      return { success: false, error: 'Nenhuma sessão ativa.' };
+    }
+
+    const authRes = await SessionService.authenticateMaster(email, password);
+    if (!authRes.success) {
+      return { success: false, error: 'Senha Mestra incorreta.' };
+    }
+
+    const res = await BiometricsService.registerBiometrics(email, password);
+    if (res.success) {
+      await StorageService.addAuditLog(email, 'CREDENTIAL_UPDATED', 'Biometria cadastrada neste aparelho.');
+    }
+    return res;
+  };
+
+  const loginWithBiometrics = async (email: string): Promise<{ success: boolean; requires2FA?: boolean; error?: string }> => {
+    const emailKey = email.toLowerCase().trim();
+    if (!BiometricsService.isEnrolled(emailKey)) {
+      return { success: false, error: 'Biometria não cadastrada para este usuário.' };
+    }
+
+    const res = await BiometricsService.authenticate(emailKey);
+    if (!res.success || !res.masterPassword) {
+      return { success: false, error: res.error || 'A validação biométrica falhou.' };
+    }
+
+    return await login(emailKey, res.masterPassword);
+  };
+
+  const disableBiometrics = () => {
+    const email = SessionService.getActiveUserEmail() || activeEmail;
+    if (email) {
+      BiometricsService.disableBiometrics(email);
+      StorageService.addAuditLog(email, 'CREDENTIAL_DELETED', 'Biometria desativada com sucesso.');
+    }
   };
 
   const lockApp = () => {
@@ -416,7 +479,12 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         lockApp,
         setupNew2FA,
         enable2FA,
-        disable2FA
+        disable2FA,
+        isBiometricsSupported,
+        isBiometricsEnrolled,
+        registerBiometrics,
+        loginWithBiometrics,
+        disableBiometrics
       }}
     >
       {children}
